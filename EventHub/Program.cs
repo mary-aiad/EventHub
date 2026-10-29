@@ -10,7 +10,7 @@ namespace EventHub
         static void Main(string[] args)
         {
             var db = new EventHubContext();
-
+            #region Add Data
             var organizer = new Organizer
             {
                 Name = "Ahmed Ali",
@@ -23,7 +23,6 @@ namespace EventHub
                 WebsiteUrl = "https://example.com",
                 LogoUrl = null
             };
-
             organizer.Events.Add(new Event
             {
                 Title = ".Net Workshop",
@@ -34,7 +33,6 @@ namespace EventHub
             });
 
             db.Organizers.Add(organizer);
-            
 
             var attendee = new Attendee
             {
@@ -53,21 +51,36 @@ namespace EventHub
             };
 
             db.Attendees.Add(attendee);
-
             db.SaveChanges();
 
             Console.WriteLine("Sample data saved successfully.");
+            #endregion
 
-            var attendees = db.Attendees.Include(a => a.Badge).ToList();
-            var organizers = db.Organizers.Include(o => o.Profile).Include(o => o.Events).ToList();
+            #region SelectOrganizerData
+            var organizers = db.Organizers
+                .AsNoTracking()
+                .Select(o => new
+                {
+                    o.Name,
+                    o.CompanyName,
+                    o.Profile.WebsiteUrl,
 
-            foreach (var _organizer in organizers)
+                    Events = o.Events.Select(e => new
+                    {
+                        e.Title,
+                        e.StartDate,
+                        e.MaxAttendees
+                    }).ToList()
+                })
+                .ToList();
+
+            foreach (var organ in organizers)
             {
-                Console.WriteLine($"Organizer: {_organizer.Name}");
-                Console.WriteLine( $"Company: {_organizer.CompanyName}");
-                Console.WriteLine($"Website: {_organizer.Profile?.WebsiteUrl}");
+                Console.WriteLine($"Organizer: {organ.Name}");
+                Console.WriteLine($"Company: {organ.CompanyName ?? "N/A"}");
+                Console.WriteLine($"Website: {organ.WebsiteUrl ?? "N/A"}");
 
-                foreach (var ev in organizer.Events)
+                foreach (var ev in organ.Events)
                 {
                     Console.WriteLine($"Event: {ev.Title}");
                     Console.WriteLine($"Start: {ev.StartDate}");
@@ -75,18 +88,42 @@ namespace EventHub
                 }
             }
 
-            foreach (var _attendee in attendees)
-            {
-                Console.WriteLine($"Attendee: {_attendee.FullName}");
-                Console.WriteLine($"Email: {_attendee.Email}");
+            #endregion
 
-                if (_attendee.Badge != null)
+            #region SelectAttendeesData
+            var attendees = db.Attendees
+                .AsNoTracking()
+                .Select(o => new
                 {
-                    Console.WriteLine($"Badge: {_attendee.Badge.CredentialNumber}");
+                    o.FullName,
+                    o.Email,
+                    o.City,
+                    o.Country,
+                    o.PostalCode,
+                    BadgeNumber = o.Badge == null
+                    ? null
+                    : o.Badge.CredentialNumber,
+                    BadgeTier = o.Badge == null
+                    ? null
+                    : (BadgeTier?)o.Badge.Tier
+                }).ToList();
 
-                    Console.WriteLine($"Tier: {_attendee.Badge.Tier}");
-                }
+
+            foreach (var attend in attendees)
+            {
+                Console.WriteLine($"Name: {attend.FullName}");
+                Console.WriteLine($"Email: {attend.Email}");
+                Console.WriteLine($"City: {attend.City}");
+                Console.WriteLine($"Country: {attend.Country}");
+                Console.WriteLine($"Postal Code: {attend.PostalCode}");
+
+                Console.WriteLine(
+                    $"Badge: {attend.BadgeNumber ?? "No Badge"}");
+
+                Console.WriteLine(
+                    $"Tier: {attend.BadgeTier?.ToString() ?? "N/A"}");
             }
+            #endregion
         }
     }
 }
